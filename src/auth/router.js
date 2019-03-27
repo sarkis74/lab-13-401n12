@@ -1,49 +1,35 @@
 'use strict';
 
+const express = require('express');
+const authRouter = express.Router();
+
 const User = require('./users-model.js');
+const auth = require('./middleware.js');
+const oauth = require('./oauth/google.js');
 
-module.exports = (req, res, next) => {
-
-    try {
-        let [authType, authString] = req.headers.authorization.split(/\s+/);
-
-        switch( authType.toLowerCase() ) {
-            case 'basic':
-                return _authBasic(authString);
-            default:
-                return _authError();
-        }
-    }
-    catch(e) {
-        next(e);
-    }
-
-
-    function _authBasic(str) {
-        // str: am9objpqb2hubnk=
-        let base64Buffer = Buffer.from(str, 'base64'); // <Buffer 01 02 ...>
-        let bufferString = base64Buffer.toString();    // john:mysecret
-        let [username, password] = bufferString.split(':'); // john='john'; mysecret='mysecret']
-        let auth = {username,password}; // { username:'john', password:'mysecret' }
-
-        return User.authenticateBasic(auth)
-            .then(user => _authenticate(user) )
-            .catch(next);
-    }
-
-    function _authenticate(user) {
-        if(user) {
-            req.user = user;
+authRouter.post('/signup', (req, res, next) => {
+    let user = new User(req.body);
+    user.save()
+        .then( (user) => {
             req.token = user.generateToken();
-            next();
-        }
-        else {
-            _authError();
-        }
-    }
+            req.user = user;
+            res.set('token', req.token);
+            res.cookie('auth', req.token);
+            res.send(req.token);
+        }).catch(next);
+});
 
-    function _authError() {
-        next('Invalid User ID/Password');
-    }
+authRouter.post('/signin', auth, (req, res, next) => {
+    res.cookie('auth', req.token);
+    res.send(req.token);
+});
 
-};
+authRouter.get('/oauth', (req,res,next) => {
+    oauth.authorize(req)
+        .then( token => {
+            res.status(200).send(token);
+        })
+        .catch(next);
+});
+
+module.exports = authRouter;

@@ -8,7 +8,7 @@ const authorize = (req) => {
     let code = req.query.code;
     console.log('(1) CODE:', code);
 
-    return superagent.post('https://www.googleapis.com/oauth2/v4/token')
+    return superagent.post('https://www.googleapis.com/oauth2/v4/token')// Superagent enhanced HTTP request to Google
         .type('form')
         .send({
             code: code,
